@@ -24,7 +24,7 @@ const db = admin.firestore();
 
 // Scheduled scraper that runs daily
 exports.scrapeAllJazzVenues = onSchedule({
-  schedule: "0 3 * * *", // Run daily at 3:00 AM
+  schedule: "0 3 * * 0", // Run weekly at Sunday 3:00 AM
   timeZone: "America/New_York",
   retryCount: 3,
 }, async (event) => {

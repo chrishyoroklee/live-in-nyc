@@ -91,12 +91,11 @@ export default function EventScreen() {
   return (
     <Container>
         <Header>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={handleBack}>
                 <Ionicons 
                     name="chevron-back-outline" 
                     size={24} 
                     color={theme.colors.text.primary} 
-                    onPress={handleBack}
                 />
             </TouchableOpacity>
            
