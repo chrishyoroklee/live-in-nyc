@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import jazzData from '../data/JazzData.json';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../app/firebase';
 
 type Event = {
   id: string;
@@ -23,27 +24,46 @@ type JazzData = {
 };
 
 export default function EventScreen() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const theme = useTheme();
-  const route = useRoute();
 
-  const { venue, date } = route.params as { venue: string; date: string };
+  const params = useLocalSearchParams();
+  const venue = params.venue as string;
+  const date = params.date as string;
+
   const [venueEvents, setVenueEvents] = useState<Event[]>([]);
 
   useEffect(() => {
-    const fetchJazzData = async () => {
+    const fetchEvent = async () => {
       try {
-        const response = await fetch('https://raw.githubusercontent.com/chrishyoroklee/live-in-nyc-data/main/JazzData.json');
-        const data: JazzData = await response.json();
-        const formattedDate = date;
-        const events = data[formattedDate]?.[venue] || [];
+        // Query Firestore for events on this date and venue
+        const q = query(
+          collection(db, "events"), 
+          where("date", "==", date),
+          where("venue", "==", venue)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        const events: Event[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          // Convert Firestore document to Event type
+          const data = doc.data();
+          events.push({
+            id: doc.id,
+            time: data.time,
+            doorsOpen: data.doorsOpen,
+            band: data.band
+          });
+        });
+        
         setVenueEvents(events);
-      } catch(error){
-        console.error('Error fetching data:', error);
+      } catch (error) {
+        console.error('Error fetching event:', error);
       }
     };
-
-    fetchJazzData();
+  
+    fetchEvent();
   }, [venue, date]);
 
   if (!date) {
@@ -52,18 +72,12 @@ export default function EventScreen() {
   }
 
   const handleFavoritesScreen = () => {
-    navigation.navigate('favorites');
+    router.push('/favorites');
   };
 
   const handleBack = () => {
-    navigation.goBack();
+    router.back();
   };
-
-  // // Format the date to match the keys in your jazzData JSON
-  // const formattedDate = date;
-
-  // // Retrieve the events for the selected date and venue
-  // const venueEvents = (jazzData as JazzData)[formattedDate]?.[venue] || [];
 
   const localDate = new Date(new Date(date).getTime() + new Date().getTimezoneOffset() * 60000);
   const displayDate = localDate.toLocaleDateString('en-US', { 

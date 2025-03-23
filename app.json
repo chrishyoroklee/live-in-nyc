@@ -1,5 +1,7 @@
 {
   "expo": {
+    "sdkVersion": "52.0.0",
+    "newArchEnabled": true,
     "name": "LIVE-in-NYC",
     "slug": "LIVE-in-NYC",
     "version": "1.0.0",
@@ -28,7 +30,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-asset"
+      "expo-asset",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

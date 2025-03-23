@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { TouchableOpacity, Text, View, FlatList} from 'react-native';
+import { TouchableOpacity, Text, View, FlatList, ActivityIndicator} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from 'react-native-modal-datetime-picker';
+import { useRouter } from 'expo-router';
+import { useEventsForDate } from '../hooks/useFirebaseEvents';
 
 interface DayCircleProps {
   isSelected: boolean;
@@ -23,8 +24,13 @@ interface Show {
   band: string;
 }
 
+interface ShowsData {
+  venue: string;
+  shows: Show[];
+}
+
 export default function DetailsScreen() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const theme = useTheme();
   const flatListRef = useRef<FlatList>(null);
 
@@ -34,8 +40,17 @@ export default function DetailsScreen() {
 
   const [selectedDay, setSelectedDay] = useState<Date>(today);
   const [days, setDays] = useState<DayItem[]>([]);
-  const [shows, setShows] = useState<{ venue: string; shows: Show[] }[]>([]);
+  // const [shows, setShows] = useState<{ venue: string; shows: Show[] }[]>([]);
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
+
+  // Use Firebase hook to fetch data
+  const { events: eventsData, loading, error } = useEventsForDate(selectedDay);
+  
+  // Convert Firebase data to the format your component expects with proper typing
+  const shows: ShowsData[] = Object.entries(eventsData).map(([venue, showsArray]) => ({ 
+    venue, 
+    shows: showsArray as Show[] 
+  }));
 
   const generateDaysArray = (month: number, year: number) => {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -67,35 +82,6 @@ export default function DetailsScreen() {
     }, 0);
   }, []);
 
-  useEffect(() => {
-    const fetchJazzData = async () => {
-      try {
-        const response = await fetch('https://raw.githubusercontent.com/chrishyoroklee/live-in-nyc-data/main/JazzData.json');
-        const data = await response.json();
-        const formattedDate = selectedDay.toISOString().split('T')[0];
-        const dayShows = data[formattedDate as keyof typeof data];
-  
-        if (dayShows) {
-          const venuesWithShows = Object.entries(dayShows).map(([venue, shows]) => {
-            if (Array.isArray(shows) && shows.every(show => typeof show === 'object')) {
-            return { venue, shows };
-            } else {
-              // Handle case where shows is not the expected type
-              console.warn('Invalid show data format for venue:', venue);
-              return { venue, shows: [] }; // Return empty shows array
-            }
-          });
-          setShows(venuesWithShows);
-        } else {
-          setShows([]);
-        }
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
-  
-    fetchJazzData();
-  }, [selectedDay]);
 
   const handleDateChange = (date: Date) => {
     setSelectedDay(date); 
@@ -104,7 +90,7 @@ export default function DetailsScreen() {
   const formattedDate = selectedDay.toISOString().split('T')[0];
 
   const handleFavoritesScreen = () => {
-    navigation.navigate('favorites');
+    router.push('/favorites')
   };
 
   const showDatePicker = () => {
@@ -123,7 +109,7 @@ export default function DetailsScreen() {
   return (
     <Container>
         <Header>
-            <TouchableOpacity onPress={navigation.goBack}>
+            <TouchableOpacity onPress={() => router.back()}>
               <Ionicons name="chevron-back-outline" size={24} color={theme.colors.text.primary}/>
             </TouchableOpacity>
             <TouchableOpacity onPress={showDatePicker} style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -169,40 +155,46 @@ export default function DetailsScreen() {
         </DaySelector>
         
         <Content contentContainerStyle={{ alignItems: 'center', paddingVertical: theme.spacing(5) }}>
-        {shows.map(({ venue, shows }) => (
-          <View key={venue} style={{ width: '100%' }}>
-            {shows.map(show => (
-              <TouchableOpacity
-              key={show.id}
-              onPress={() => 
-                navigation.navigate('event', {
-                  venue: venue,
-                  date: formattedDate,
-                 })
-              }
-              style={{ 
-                flexDirection: 'row', 
-                alignItems: 'center', 
-                justifyContent: 'space-between', 
-                width: '90%', 
-                alignSelf: 'flex-start' 
-              }}              
-              >
-                <VenueCardContainer key={show.id}>
-                  <VenueCard>
-                    <VenueName>{venue}</VenueName>
-                  </VenueCard>
-                  <TextContainer>
-                    <BandName>{show.band}</BandName>
-                    <EventDetails>{show.time}</EventDetails>
-                    <TimeDetails>{`Doors Open: ${show.doorsOpen}`}</TimeDetails>
-                  </TextContainer>
-                </VenueCardContainer>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
-      </Content>
+          {loading ? (
+            <ActivityIndicator size={36} color={theme.colors.button.primary} />
+          ) : error ? (
+            <Text>Error loading events. Please try again.</Text>
+          ) : shows.length === 0 ? (
+            <Text>No events found for this date.</Text>
+          ) : (
+            shows.map(({ venue, shows }) => (
+              <View key={venue} style={{ width: '100%' }}>
+                {shows.map((show: Show) => (
+                  <TouchableOpacity
+                    key={show.id}
+                    onPress={() => router.push({
+                      pathname: '/event',
+                      params: { venue: venue, date: formattedDate }
+                    })}
+                    style={{ 
+                      flexDirection: 'row', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between', 
+                      width: '90%', 
+                      alignSelf: 'flex-start' 
+                    }}              
+                  >
+                    <VenueCardContainer key={show.id}>
+                      <VenueCard>
+                        <VenueName>{venue}</VenueName>
+                      </VenueCard>
+                      <TextContainer>
+                        <BandName>{show.band}</BandName>
+                        <EventDetails>{show.time}</EventDetails>
+                        <TimeDetails>{`Doors Open: ${show.doorsOpen}`}</TimeDetails>
+                      </TextContainer>
+                    </VenueCardContainer>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))
+          )}
+        </Content>
 
         <DateTimePicker
             isVisible={isDatePickerVisible}

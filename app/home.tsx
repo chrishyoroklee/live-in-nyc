@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { TouchableOpacity, Text, View, ScrollView, FlatList, Image} from 'react-native';
+import React, { useState } from 'react';
+import { TouchableOpacity, Text, View, ActivityIndicator, FlatList, Image} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/native';
 import { Ionicons } from '@expo/vector-icons';
 import SearchBar from '@/components/searchbar/SearchBar';
-import { useNavigation } from '@react-navigation/native';
-// import LoadingScreen from './loadingScreen'; 
-import jazzData from '../data/JazzData.json';
+import { useRouter } from 'expo-router';
+import { useEventsForDate, useFilteredEventsByCategory } from '../hooks/useFirebaseEvents';
 
 interface Show {
   id: string;
@@ -30,74 +29,34 @@ interface DayCircleProps {
 }
 
 export default function HomeScreen() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const theme = useTheme();
 
-  const [isLoading, setIsLoading] = useState(true); // State to manage loading
+  // const [isLoading, setIsLoading] = useState(true); // State to manage loading
   const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const [selectedDay, setSelectedDay] = useState(new Date());
   const [selectedCategory, setSelectedCategory] = useState('Music');
-  const [shows, setShows] = useState<{ venue: string; shows: Show[] }[]>([]);
+  // const [shows, setShows] = useState<{ venue: string; shows: Show[] }[]>([]);
 
-  // useEffect(() => {
-  //   setTimeout(() => {
-  //     setIsLoading(false); 
-  //   }, 3000);
-  // }, []);
+  // Use our custom Firebase hook
+  const { events, loading, error } = useEventsForDate(selectedDay);
+  
+  // Filter events by category
+  const filteredEvents = useFilteredEventsByCategory(events, selectedCategory);
+  
+  // Convert filtered events to the format expected by your existing rendering code
+  const showsArray = Object.entries(filteredEvents).map(([venue, shows]) => ({ 
+    venue, 
+    shows 
+  }));
 
-  // const formattedDate = selectedDay.toISOString().split('T')[0];
-
-  // useEffect(() => {
-  //   const dayShows = jazzData[formattedDate as keyof typeof jazzData];
-    
-  //   if (dayShows) {
-  //     const venuesWithShows = Object.entries(dayShows).map(([venue, shows]) => {
-  //       return { 
-  //         venue, 
-  //         shows: shows.filter(show => show?.category === selectedCategory || !show?.category) 
-  //       };
-  //     }).filter(venueWithShows => venueWithShows.shows.length > 0);
-
-  //     setShows(venuesWithShows);
-  //   } else {
-  //     setShows([]); 
-  //   }
-  // }, [selectedDay, selectedCategory]);
   const formattedDate = selectedDay.toISOString().split('T')[0];
-
-  useEffect(() => {
-    fetch('https://raw.githubusercontent.com/chrishyoroklee/live-in-nyc-data/main/JazzData.json')
-    .then(response => response.json())
-    .then(jazzData => {
-      
-      const dayShows = jazzData[formattedDate as keyof typeof jazzData];
-
-      if (dayShows) {
-        const venuesWithShows = Object.entries(dayShows).map(([venue, shows]) => {
-          return { 
-            venue, 
-            shows: (shows as Show[]).filter(show => show?.category === selectedCategory || !show?.category) 
-          };
-        }).filter(venueWithShows => venueWithShows.shows.length > 0);
-
-        setShows(venuesWithShows);
-      } else {
-        setShows([]); 
-      }
-      setIsLoading(false);
-    })
-    .catch(error => {
-      console.error('Error fetching JSON:', error);
-      setIsLoading(false);
-    });
-  }, [formattedDate, selectedCategory]);
 
   const handleDayChange = (dayIndex: number) => {
     const today = new Date();
     const todayIndex = today.getDay();
     const diff = dayIndex - todayIndex;
     const selectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + diff, 12, 0, 0);
-    // selectedDate.setDate(date.getDate() + diff);
     setSelectedDay(selectedDate);
   };
 
@@ -105,24 +64,24 @@ export default function HomeScreen() {
     setSelectedCategory(category);
   };
 
-  const filteredShows = shows.filter(venueWithShows => 
-    venueWithShows.shows.some(show => show.category === selectedCategory)
-  );
+  // const filteredShows = shows.filter(venueWithShows => 
+  //   venueWithShows.shows.some(show => show.category === selectedCategory)
+  // );
   
   const handleSettingsScreen = () => {
-    navigation.navigate('settings');
+    router.push('/settings');
   };
 
   const handleFavoritesScreen = () => {
-    navigation.navigate('favorites');
+    router.push('/favorites');
   };
 
   const handleDetailsScreen = () => {
-    navigation.navigate('details');
+    router.push('/details');
   };
 
   const handleLoadingScreen = () => {
-    navigation.navigate('loadingScreen');
+    router.push('/loadingScreen');
   };
 
   return (
@@ -190,42 +149,46 @@ export default function HomeScreen() {
         </SeeAll>
         
         <Content contentContainerStyle={{ alignItems: 'center', paddingVertical: theme.spacing(5) }}>
-            {shows.length === 0 ? (
-               <NoEventsText>No events available for this category.</NoEventsText>      
-            ) : (
-            shows.map(({ venue, shows }) => (
-              <View key={venue} style={{ width: '100%' }}>
-                {shows.map(show => (
-                  <TouchableOpacity
-                    key={show.id}
-                    onPress={() => navigation.navigate('event', {
-                      venue: venue,
-                      date: formattedDate
-                    })}
-                    style={{ 
-                      flexDirection: 'row', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between', 
-                      width: '90%', 
-                      alignSelf: 'flex-start' 
-                    }}
-                  >
-                    <VenueCardContainer>
-                      <VenueCard>
-                        <VenueName>{venue}</VenueName>
-                      </VenueCard>
-                      <TextContainer>
-                        <BandName>{show.band}</BandName>
-                        <EventDetails>{show.time}</EventDetails>
-                        <TimeDetails>{`Doors Open: ${show.doorsOpen}`}</TimeDetails>
-                      </TextContainer>
-                    </VenueCardContainer>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))
-          )}
-        </Content>
+        {loading ? (
+          <ActivityIndicator size={36} color={theme.colors.button.primary} />
+        ) : error ? (
+          <NoEventsText>Error loading events. Please try again.</NoEventsText>
+        ) : showsArray.length === 0 ? (
+          <NoEventsText>No events available for this category.</NoEventsText>      
+        ) : (
+          showsArray.map(({ venue, shows }) => (
+            <View key={venue} style={{ width: '100%' }}>
+              {shows.map((show: Show) => (
+                <TouchableOpacity
+                  key={show.id}
+                  onPress={() => router.push({
+                    pathname: '/event',
+                    params: { venue: venue, date: formattedDate }
+                  })}
+                  style={{ 
+                    flexDirection: 'row', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    width: '90%', 
+                    alignSelf: 'flex-start' 
+                  }}
+                >
+                  <VenueCardContainer>
+                    <VenueCard>
+                      <VenueName>{venue}</VenueName>
+                    </VenueCard>
+                    <TextContainer>
+                      <BandName>{show.band}</BandName>
+                      <EventDetails>{show.time}</EventDetails>
+                      <TimeDetails>{`Doors Open: ${show.doorsOpen}`}</TimeDetails>
+                    </TextContainer>
+                  </VenueCardContainer>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))
+        )}
+      </Content>
     </Container>
   );
 }

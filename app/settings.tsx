@@ -2,7 +2,7 @@ import { View, Text, FlatList, TouchableOpacity } from 'react-native'
 import React, { useEffect } from 'react'
 import styled from '@emotion/native'
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 
 interface SettingsOption {
   id: string;
@@ -20,10 +20,10 @@ const settingsOptions = [
 ];
 
 const SettingsScreen = () => {
-  const navigation = useNavigation();
+  const router = useRouter();
 
   const handleDone = () => {
-    navigation.goBack();
+    router.back();
   };
 
   const renderItem = ({ item }: { item: SettingsOption }) => (

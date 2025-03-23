@@ -4,14 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@emotion/react';
 import styled from '@emotion/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 
 export default function FavoritesScreen() {
-  const navigation = useNavigation();
+  const router = useRouter();
   const theme = useTheme();
 
   const handleBack = () => {
-    navigation.goBack();
+    router.back();
   };
 
   const venues = [
